@@ -1,5 +1,7 @@
 # Structure_Generation
 
+## Status : Under Development 
+
 ## Requirements
 FitSNAP - (post library update) 
 ASE - v 3.22.1
