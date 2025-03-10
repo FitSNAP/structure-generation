@@ -79,7 +79,6 @@ class GRS:
         def gradient_move():
             #Pass data to, and do something with the functs of gradient_move
             gradient_move()
-
     def baseline_training(self):
         """
         Accepts a structure (xyz, ase.Atoms) as input and will return updated structure (xyz, ase.Atoms) that 
