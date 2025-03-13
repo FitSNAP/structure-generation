@@ -8,4 +8,3 @@ class GRS:
         self.input_target=input_target
         #self.set_target()
         
-coreen-mullen/Structure_Generation-C/GRS/grs.py
