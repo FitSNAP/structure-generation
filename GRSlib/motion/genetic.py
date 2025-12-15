@@ -71,16 +71,11 @@ class Genetic:
         return crossover_population
 
     def crossover_ASE(self, parent1, parent2):
-        # 1) Takes in a pair of structures, tourny selection should give the most recent winner
-        #    and a (random?) second structure from the winners circle or runner up.
+        # 1) Takes in a pair of structures, pairs of parents should be the preferred method.
         # 2) Crossover will be the 'merger' of these two structures, which for now is the cell from last winner and 
         #    a spliced together set of atoms based on some random dividing line in the atom ids. 
         # 3) Check the spliced cell for accuracy in chemical composition, flip_atoms until close to desired
-        # 4) Now generate the remaining population_size - 2  structures as perturbations of the spliced cell. 
-        # 5) Return the population 
-        crossover_population = []
-        crossover_population.append(parent1) #Make sure the two parents make it into the next generation for comparison
-        crossover_population.append(parent2) #Make sure the two parents make it into the next generation for comparison
+        # 4) Return the pair of children from repeating this process once more
         
         atomic_numbers = list(parent1.get_atomic_numbers()) + list(parent2.get_atomic_numbers())
         blmin = closest_distances_generator(atomic_numbers, 0.5)
@@ -106,45 +101,43 @@ class Genetic:
             cellbounds=cellbounds,
             use_tags=False,
         )
-        for ii in range(self.config.sections["GENETIC"].population_size-2):
-            child1 = csp.cross(parent1,parent2)
-            #child2 = csp.cross(parent1,parent2)
+        child1 = csp.cross(parent1,parent2)
+        pre_move_lammps = self.convert.ase_to_lammps(child1,'child1')
+        #Optional minimization after crossover/mutation here, set to none so we can just get the score out
+        event = getattr(self.gradmove, 'none_min')
+        before_score, child1_score, child1 = event(pre_move_lammps)
 
-            pre_move_lammps = self.convert.ase_to_lammps(child1,'tmp')
-            grad_type = self.config.sections['GRADIENT'].min_type + '_min'
-            event = getattr(self.gradmove, grad_type)
-            before_score, after_score, post_move_lammps = event(pre_move_lammps)
-            child1 = self.convert.lammps_to_ase(post_move_lammps)
+        child2 = csp.cross(parent1,parent2)
+        pre_move_lammps = self.convert.ase_to_lammps(child1,'child2')
+        #Optional minimization after crossover/mutation here, set to none so we can just get the score out
+        event = getattr(self.gradmove, 'none_min')
+        before_score, child2_score, child2 = event(pre_move_lammps)
 
-            crossover_population.append(child1)
-            #crossover_population.append(child2)
-        return crossover_population
+        return child1, child1_score, child2, child2_score
 
-    def mutation(self, parent, single = False):
-        # 1) Takes in a structures, tourny selection should give the most recent winner
-        # 2) Generate the remaining population_size - 1  structures as perturbations of the given cell. 
-        # 3) Return the population 
-        mutated_population = []
+    def mutation(self, parent1, parent2, single):
+        # 1) Takes in a pair of parent structures
+        # 2) Generate a pair of child structures as perturbations of the given cell. 
+        # 3) Return the children 
         mutation_options = self.config.sections["GENETIC"].mutation_types
         if not single:
-            mutation_array = random.choices(list(mutation_options.keys()), weights=mutation_options.values(), k=self.config.sections["GENETIC"].population_size)
+            mutation_array = random.choices(list(mutation_options.keys()), weights=mutation_options.values(), k=2) #unique mutation per parent
         else:
-            mutation_array = random.choices(list(mutation_options.keys()), weights=mutation_options.values(), k=1)
-        for mutation in mutation_array:
-            event = getattr(GenMoves, mutation)
-            mutated = event(parent,self.config)
-            #print('in mutation: mutated before',mutated)
-            """
-            #TODO update for other operations (other than change_ele) 
-            if self.config.sections['GRADIENT'].min_type == 'none':
-                pre_move_lammps = self.convert.ase_to_lammps(mutated,'tmp')
-                grad_type = self.config.sections['GRADIENT'].min_type + '_min'
-                event = getattr(self.gradmove, grad_type)
-                print('grad_type',grad_type,event)
-                before_score, after_score, post_move_lammps = event(pre_move_lammps)
-                mutated = self.convert.lammps_to_ase(post_move_lammps)
-                print('in mutation: mutated after', mutated)
-            """
-            mutated_population.append(mutated)
-        #print('mutated pop',mutated_population)
-        return mutated_population
+            mutation = random.choices(list(mutation_options.keys()), weights=mutation_options.values(), k=1) #same mutation per parent
+            mutation_array = [mutation, mutation]
+        event = getattr(GenMoves, mutation_array[0][0])
+        child1 = event(parent1,self.config)
+        event = getattr(GenMoves, mutation_array[1][0])
+        child2 = event(parent2,self.config)
+        
+        pre_move_lammps = self.convert.ase_to_lammps(child1,'child1')
+        #Optional minimization after crossover/mutation here, set to none so we can just get the score out
+        event = getattr(self.gradmove, 'none_min')
+        before_score, child1_score, child1 = event(pre_move_lammps)
+    
+        pre_move_lammps = self.convert.ase_to_lammps(child2,'child2')
+        #Optional minimization after crossover/mutation here, set to none so we can just get the score out
+        event = getattr(self.gradmove, 'none_min')
+        before_score, child2_score, child2 = event(pre_move_lammps)
+
+        return child1, child1_score, child2, child2_score

@@ -5,7 +5,7 @@ import jax
 from jax import grad, jit
 from functools import partial
 
-class Moments(Scoring):
+class MomentsAtomic(Scoring):
     def __init__(self, *args): #pt, config, target_desc, prior_desc):
         self.pt, self.config, descriptors = args
         self.target_desc = descriptors.get('target',None).copy() 
@@ -133,14 +133,14 @@ class Moments(Scoring):
     @partial(jit, static_argnums=(0,))
     def first_moment(self, current_desc, target_desc):
         current_avg = jnp.average(current_desc, axis=0)*self.mask
+        current_masked = current_desc*self.mask       
         target_avg = jnp.average(target_desc, axis=0)*self.mask
-        tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
-        tst_residual_av = jnp.average(jnp.nan_to_num(jnp.abs(current_avg-target_avg)))
+        tst_residual = jnp.sum(jnp.nan_to_num(jnp.abs(current_masked-target_avg)),axis=1)
+
         is_zero = jnp.array(jnp.isclose(tst_residual,jnp.zeros(tst_residual.shape)),dtype=int)
         bonus = -jnp.sum(is_zero*(float(self.config.sections['SCORING'].moments_bonus[0])))
         tst_residual_final = tst_residual*float(self.config.sections['SCORING'].moments_coeff[0]) + bonus #MAE + bonus
-        #jax.debug.print("first moment inside JIT: {}", tst_residual_final/38.0)
-        #print('in first moment',float(tst_residual_final))
+        jax.debug.print("first moment inside JIT: {}", tst_residual_final)
         return tst_residual_final
 
     @partial(jit, static_argnums=(0,))

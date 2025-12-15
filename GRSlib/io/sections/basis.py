@@ -34,8 +34,6 @@ try:
             self.rcinner = self.get_value("BASIS","rcinner",'0.0').split()
             self.drcinner = self.get_value("BASIS","drcinner",'0.01').split()
             self.elements = self.get_value("BASIS", "elements", "H").split()
-            print('elements',self.elements)
-            print('rcinner',self.rcinner)
             self.mumax = len(self.elements)
             self.numtypes = len(self.elements)
             #self.erefs = self.get_value("ACE", "erefs", "0.0").split() 
@@ -115,10 +113,10 @@ try:
             nus.sort(key = lambda x : mu0s[nus_unsort.index(x)],reverse = False)
             byattyp = srt_by_attyp(nus)
             #config.nus = [item for sublist in list(byattyp.values()) for item in sublist]
-            print('byatttyp',byattyp)
-            print('num type',self.numtypes)
+#            print('byatttyp',byattyp)
+#            print('num type',self.numtypes)
             for atype in range(self.numtypes):
-                print('atype',atype)
+#                print('atype',atype)
                 nus = byattyp[str(atype)]
                 for nu in nus:
                     i += 1
@@ -146,7 +144,7 @@ try:
                 bondinds=range(len(self.elements))
                 bonds = [b for b in itertools.product(bondinds,bondinds)]
                 bondstrs = ['[%d, %d]' % b for b in bonds]
-                print('bond strs basis.py',bondstrs)
+#                print('bond strs basis.py',bondstrs)
                 assert len(self.lmbda) == len(bondstrs), "must provide rc, lambda, for each BOND type" 
                 assert len(self.rcutfac) == len(bondstrs), "must provide rc, lambda, for each BOND type" 
                 if len(self.lmbda) == 1:
@@ -186,7 +184,7 @@ try:
                         #store them for later so they don't need to be recalculated
                         store_generalized(ccs, coupling_type='wig',L_R=L_R)
 
-                print('rcinner vals basis.py', rcinnervals)
+#                print('rcinner vals basis.py', rcinnervals)
 
                 apot = AcePot(self.elements, reference_ens, [int(k) for k in self.ranks], [int(k) for k in self.nmax],  [int(k) for k in self.lmax], self.nmaxbase, rcvals, lmbdavals, rcinnervals, drcinnervals, [int(k) for k in self.lmin], self.b_basis, **{'ccs':ccs[M_R]})
                 apot.write_pot('coupling_coefficients')

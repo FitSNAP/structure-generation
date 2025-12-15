@@ -25,12 +25,9 @@ settings = \
     },
 "SCORING":
     {
-    "score_type": "moments",
+    "score_type": "wasserstein",
     "strength_target": 1.0, 
     "strength_prior": 0.0, 
-    "moments": "mean stdev" ,
-    "moments_coeff": "1.0 0.01",
-    "moments_bonus": "0 0" ,
     "smartmask": 0
     },
 "TARGET":
@@ -71,5 +68,13 @@ score = grs.get_score(settings["TARGET"]["start_fname"])
 print("     Starting Score:",score)
 
 #grs.set_prior([settings["TARGET"]["start_fname"]])
+ensemble = grs.get_ensemble_score('native')
+print("Ensemble Score of Prior wrt Target:",ensemble)
+updated_struct = settings["TARGET"]["start_fname"]
+updated_struct = grs.gradient_move(updated_struct)
+updated_struct = grs.update_start(updated_struct,"MinScore")
+grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*.data"))
+score = grs.get_score(updated_struct)
+print("     Ending Score:",score)
 ensemble = grs.get_ensemble_score('native')
 print("Ensemble Score of Prior wrt Target:",ensemble)

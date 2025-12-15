@@ -30,7 +30,7 @@ settings = \
     "score_type": "moments",
     "strength_target": 1.0, 
     "strength_prior": 0.0, 
-    "norm_by_numdesc":1,
+    "norm_by_numdesc": True,
     "moments": "mean" ,
     "moments_coeff": "1.0",
     "moments_bonus": "0 " ,
@@ -55,7 +55,10 @@ settings = \
     "mutation_rate": 1.0,
     "mutation_types": {"perturb": 0.0, "change_ele": 1.0, "atom_count" : 0.0, "volume" : 0.0, "minimize" : 0.0, "ortho_cell" : 0.0}, 
     "population_size": 10,
-    "ngenerations": 100,
+    "ngenerations": 10,
+    "tournament_size": 2,
+    "replacements": True,
+    "multi_mutate": True,
     #"max_atoms": 50,
     #"min_atoms": 10,
     "density_ratio": 1.0,
@@ -65,17 +68,18 @@ settings = \
 
 grs = GRS(settings,comm=comm)
 
-score = grs.get_score(settings["TARGET"]["start_fname"])
-print("     Starting Score:",score)
+#score = grs.get_score(settings["TARGET"]["start_fname"])
+#print("     Starting Score:",score)
 
 updated_struct = settings["TARGET"]["start_fname"]
+
 grs.set_prior([updated_struct])
 
 scores, best_struct = grs.genetic_move(updated_struct)
 
-updated_struct = grs.gradient_move(best_struct)
-score = grs.get_score(updated_struct)
-print("     Ending Score:",score)
+#updated_struct = grs.gradient_move(best_struct)
+#score = grs.get_score(updated_struct)
+#print("     Ending Score:",score)
 
 #updated_struct = grs.update_start(updated_struct,"MinScore")
 #grs.set_prior(glob.glob(settings['TARGET']["job_prefix"]+"*.data"))

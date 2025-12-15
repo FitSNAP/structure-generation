@@ -149,14 +149,12 @@ class GRS:
         between file types (xyz=lammps-data, ase.Atoms, etc)
         """
         #Pass data to, and do something with the functs of scoring
-        #if self.config.sections['TARGET'].target_fname is None:
-            #print("Provided target descriptors superceed target data file")
         try:
             self.descriptors['target'] = np.load(self.config.sections['TARGET'].target_fdesc)    
+            print("Provided target descriptors superceed target data file")
         except:
             self.descriptors['target'] = self.convert_to_desc(self.config.sections['TARGET'].target_fname)
         self.descriptors['current'] = self.convert_to_desc(data)
-        
         try: # If prior is empty when getting a score, set to starting structure. 
             if self.descriptors.get('prior',None)==None: 
                 self.set_prior([self.config.sections['TARGET'].start_fname])
@@ -243,7 +241,7 @@ class GRS:
         self.score = Scoring(self.pt, self.config, self.loss_func, self.descriptors)  # Set scoring class to assign scores to moves
         self.genmove = Optimize(self.pt, self.config, self.score, self.convert) #Set desired motion class with scoring attached
         
-        gen_scores = self.genmove.unique_selection(data)
+        gen_scores = self.genmove.advance_generations(data)
         #self.write_output()
         best_candidate = sorted(gen_scores,key=lambda x: x[3])[0][2]
         return gen_scores, best_candidate

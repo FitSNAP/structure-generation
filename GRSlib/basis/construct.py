@@ -24,7 +24,7 @@ def make_ACE_functions(elements,ranks,lmax,lmin,nmax):
 
         # radial function hyperparameters are defined per bond type:
         bonds = [p for p in itertools.product(elements,elements)]
-        print('bonds',bonds)
+        #print('bonds',bonds)
         rc_range,rc_default,lmb_default,rcin_default = get_default_settings(elements,nshell=2,return_range=True,apply_shift=False)
         rcutfac = [float(k) for k in rc_default.split()[2:]]
         lmbda = [float(k) for k in lmb_default.split()[2:]]
@@ -66,6 +66,6 @@ def make_ACE_functions(elements,ranks,lmax,lmin,nmax):
                 store_generalized(ccs, coupling_type='wig',L_R=L_R)
         Apot = AcePot(elements,reference_ens,ranks,nmax,lmax,nradbase,rcutfac,lmbda,rcinner,drcinner,lmin=lmin, **{'ccs':ccs[M_R]})
         Apot.write_pot('coupling_coefficients')
-        print(Apot.nus)
+        #print(Apot.nus)
     except ModuleNotFoundError:
         raise ModuleNotFoundError("Need to have fitsnap3 module in your python path to automatically generate ACE bases")

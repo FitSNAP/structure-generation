@@ -142,7 +142,7 @@ class GenMoves():
         ele_counts = list(ele_counts_dct.values())
         le_cond = any([icomp < target_comp[ii] - pm_frac for ii,icomp in enumerate(ele_counts)])
         ge_cond = any([icomp > target_comp[ii] + pm_frac for ii,icomp in enumerate(ele_counts)])
-        print('final',itr,target_comp,ele_counts, le_cond,ge_cond)
+        #print('final',itr,target_comp,ele_counts, le_cond,ge_cond)
         return new_atoms
 
     def minimize(atoms,config):

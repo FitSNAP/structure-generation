@@ -40,7 +40,10 @@ class Ace(Convert):
 
     def _collect_lammps_single(self):
         num_atoms = self._lmp.extract_global("natoms")
-        num_types = self.config.sections['BASIS'].numtypes
+        try:
+            types = self._lmp.numpy.extract_atom(name="type", nelem=num_atoms).ravel()
+        except:
+            types = self._lmp.numpy.extract_atom_iarray(name="type", nelem=num_atoms).ravel()         
         with open('coupling_coefficients.yace','r') as readcoeff:
             lines = readcoeff.readlines()
             elemline = [line for line in lines if 'elements' in line][0]
@@ -51,18 +54,27 @@ class Ace(Convert):
             elems = elemstr4.split()
             nelements = len(elems)
             desclines = [line for line in lines if 'mu0' in line]
+
+#        if nelements != int(len(set(types))):
+#            print("Target structure doesnt have the full number of desired element types")
         
-        ncols_pace = int(len(desclines)/nelements) +1
-        #ncols_pace = int(len(desclines)/nelements) + nelements #with bzero?
+#        ncols_pace = int(len(desclines)/nelements) +1
+        ncols_pace = int(len(desclines)) + 1 #need to bring in full columns and reassign based on element type
         nrows_pace = num_atoms
         lmp_pace = _extract_compute_np(self._lmp, "pace", 0, 2, (nrows_pace, ncols_pace))
-
         if (np.isinf(lmp_pace)).any() or (np.isnan(lmp_pace)).any():
             self.pt.single_print('WARNING! Applying np.nan_to_num()')
             lmp_pace = np.nan_to_num(lmp_pace)
         if (np.isinf(lmp_pace)).any() or (np.isnan(lmp_pace)).any():
             raise ValueError('Nan in computed data of file')
-#        print("Got descriptors, returning")
-#        print(np.shape(lmp_pace))
-        return lmp_pace
+        ndesc = int(len(desclines)/nelements)
+        if nelements > 1:                
+            for atoms in range(num_atoms):
+                try:
+                    perelem_desc= np.r_[[lmp_pace[atoms,(types[atoms]-1)*ndesc:(types[atoms])*ndesc]], perelem_desc]
+                except:
+                    perelem_desc = [lmp_pace[atoms,(types[atoms]-1)*ndesc:(types[atoms])*ndesc]]
+            return perelem_desc
+        else:
+            return lmp_pace
         

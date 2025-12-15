@@ -114,6 +114,7 @@ def _extract_compute_np(lmp, name, compute_style, result_type, array_shape):
 
     if array_shape is None:
         array_np = lmp.numpy.extract_compute(name,compute_style, result_type)
+        return array_np
     else:
         ptr = lmp.extract_compute(name, compute_style, result_type)
         if result_type == 0:
@@ -130,7 +131,7 @@ def _extract_compute_np(lmp, name, compute_style, result_type, array_shape):
         array_np.shape = array_shape
         reshaped_array_np = np.delete(array_np, np.s_[-1:], axis=1)
         #LAMMPS is returning an extra descriptor at the end of the list, deleting by reshaping
-    return reshaped_array_np
+        return reshaped_array_np
 
 def _extract_commands(string):
     return [x for x in string.splitlines() if x.strip() != '']

@@ -2,6 +2,7 @@
 from GRSlib.motion.scoring import Scoring
 from GRSlib.motion.lossfunc.moments import Moments
 from GRSlib.motion.lossfunc.entropy import Entropy
+from GRSlib.motion.lossfunc.wasserstein import Wasserstein
 #   from GRSlib.motion.lossfunc.moments import *
 
 # Need to direct the scoring class to the appropiate loss function generator, this will connect

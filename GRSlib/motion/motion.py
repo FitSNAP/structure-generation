@@ -58,6 +58,7 @@ class Gradient:
         min_style  cg
         min_modify dmax %2.2f line quadratic
         dump 1 all custom 1 minimize_line.dump id type x y z fx fy fz
+        displace_atoms all random 0.01 0.01 0.01 12345 units box
         minimize %1.1E %1.1E %s %s
         write_data %s_last.data
         """ % (dmax,tole,tolf, self.config.sections['GRADIENT'].nsteps, self.config.sections['GRADIENT'].nsteps, self.config.sections['TARGET'].job_prefix)
@@ -120,39 +121,62 @@ class Optimize:
         self.create = Create(self.pt, self.config, self.convert)
         self.gradmove = Gradient(pt, config, scoring)
 
-    def find_min_runner_up(self,selection,random_x_second=None):
-        population = selection.copy()
-        population.sort(key = lambda x:x[3],reverse=False)
-        mp_inds = {ii:population[ii][1] for ii in range(len(population))}
-        #print(mp_inds)
-        #print('sort_pop',population)
-        #print('win,runner_up',population[0],population[1])
-        if random_x_second == None:
-            return population[0],population[1]
+    def find_min_max(self,population):
+        population.sort(key = lambda x:x[3],reverse=True)
+#        mp_inds = {ii:population[ii][1] for ii in range(len(population))}
+        return population[0],population[int(len(population))-1]
+
+    def tournament_selection(self,population,iteration,k,replacements,multi_mutate):
+        #This version of the tournament will have preset values of k and mutation/crossover decisions
+        #which result in more generic pressure to find higher fitness (lower score).
+        count_pop = int(len(population))
+        scores = np.array([p[3] for p in population])
+        tourny_winners = []
+        for rounds in range(self.config.sections["GENETIC"].population_size):
+            tourny_trials = np.random.choice(range(0,len(population)),k,replace=replacements)
+            indicies = list(tourny_trials)
+            pool_scores = list(scores[indicies])
+            pool_winner = int(np.sort(np.c_[indicies, pool_scores], axis=0)[0][0]) #index of lowest score in this batch
+            tourny_winners.append(pool_winner)
+
+        #TODO Need to decide what to do with the tourny winners
+
+        parents = []
+        for id in range(int(count_pop/2)):
+            parents.append([population[tourny_winners[id]],population[tourny_winners[int(count_pop-id-1)]]])
+
+        #Now setup for the next iteration of the tournament
+        population = []
+        if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
+            for parent_pair in range(len(parents)):
+                ase_parent1 = self.convert.lammps_to_ase(parents[parent_pair][0][2]) # index of parent pair, index of parent, name of data-file
+                ase_parent2 = self.convert.lammps_to_ase(parents[parent_pair][1][2]) # index of parent pair, index of parent, name of data-file
+                child1, score1, child2, score2 = self.genetic.mutation(ase_parent1,ase_parent2,multi_mutate)
+                #Could add logic here to compare child scores to parents
+                file_name_child1 = self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.lammps-data"%(parent_pair*2+0,iteration)
+                file_name_child2 = self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.lammps-data"%(parent_pair*2+1,iteration)
+
+                shutil.move('child1', file_name_child1)
+                shutil.move('child2', file_name_child2)
+                population.append([iteration, parent_pair*2+0, file_name_child1, score1])
+                population.append([iteration, parent_pair*2+1, file_name_child2, score2])
+#                print("Parents:",parents[parent_pair][0][3],parents[parent_pair][1][3], "Children:",score1,score2)
         else:
-            second = np.random.randint(1,random_x_second-1)
-            try:
-                return population[0],population[second]
-            except IndexError:
-                return population[0],population[0]
-        
-        #print(selection[mp_inds[0]],selection[mp_inds[1]])
-    
-    def tournament_selection_N(self,population_in,k=3,seed=None):
-        population = population_in.copy()
-        scores = [p[3] for p in population]
-        scores_a = np.array(scores)
-        #lowest_k_minus_1_scores = scores.copy().sort(key=lambda x : x[3],reverse=False)[:k-1]
-        if seed != None:
-            np.random.seed(seed)
-        selection_ix = np.random.choice(range(0,len(population)),k-1,replace=False)
-        not_ix = [j for j in range(0,len(population)) if j not in selection_ix]
-        selection_jx = np.random.choice(not_ix,k-1,replace=False)
-        mask_ix = scores_a[selection_jx] <= scores_a[selection_ix]
-        #mask_ix = scores_a[selection_jx] < scores_a[selection_ix]
-        selection_ix = selection_jx[mask_ix]
-        updated = [population[ix] for ix in selection_ix]
-        return updated
+            for parent_pair in range(len(parents)):
+                ase_parent1 = self.convert.lammps_to_ase(parents[parent_pair][0][2]) # index of parent pair, index of parent, name of data-file
+                ase_parent2 = self.convert.lammps_to_ase(parents[parent_pair][1][2]) # index of parent pair, index of parent, name of data-file
+                child1, score1, child2, score2 = self.genetic.crossover_ASE(ase_parent1,ase_parent2) 
+                #Could add logic here to compare child scores to parents
+                file_name_child1 = self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.lammps-data"%(parent_pair*2+0,iteration)
+                file_name_child2 = self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.lammps-data"%(parent_pair*2+1,iteration)
+
+                shutil.move('child1', file_name_child1)
+                shutil.move('child2', file_name_child2)
+                population.append([iteration, parent_pair*2+0, file_name_child1, score1])
+                population.append([iteration, parent_pair*2+1, file_name_child2, score2])
+#                print("Parents:",parents[parent_pair][0][3],parents[parent_pair][1][3], "Children:",score1,score2)
+
+        return population
 
     def filter_unique(self,selection):
         used = []
@@ -163,114 +187,37 @@ class Optimize:
                 used.append(s[1])
         return updated     
 
-    def unique_selection(self, data):
+    def advance_generations(self, data):
         #More of a super function that will call a bunch of the ones below
         #This should be the default since we dont want to send duplicates the crossover/mutation
-        ki=3 #default
-        #ki =4
         self.genetic = Genetic(self.pt, self.config,self.convert,self.scoring,self.gradmove)    
+        k = self.config.sections["GENETIC"].tournament_size
+        replacements = self.config.sections["GENETIC"].replacements
+        multi_mutate =self.config.sections["GENETIC"].multi_mutate
+        
         starting_generation = Create.starting_generation(self,data)
         scores = []
         gen_winners = []
-        for candidate in range(len(starting_generation)):
+        for candidate in range(self.config.sections["GENETIC"].population_size):
             file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,'Init')
             lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name)
             #Honestly I would prefer scores as a dictonary of Key:Item pairs, TODO later.
             scores.append(['Init', candidate, file_name, self.scoring.get_score(lammps_data)])
-#            shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,0))
+        # We now have the scores from the starting generation which uses a from_(start_type) to populate
+        if self.config.sections["GENETIC"].randomseed != None:
+            np.random.seed(self.config.sections["GENETIC"].randomseed)
+
         for iteration in range(self.config.sections['GENETIC'].ngenerations):       
-            population_in = scores.copy()
-            print('pop in',population_in)
-            #iterate selection method (good place to sub in different selection methods in the future)
-            selected_sets = [self.tournament_selection_N(population_in,k=ki,seed=None) for idx in range(len(starting_generation))]
-            print('raw sets',selected_sets)
-            #remove empty selections (TODO remove empty selection solution)
-            selected_sets = [s for s in selected_sets if len(s) >=2]
-            selected= [item for sublist in selected_sets for item in sublist]
-            #filter for uniqueness (no repeats of candidates from population in selection)
-            print('selected pre filter',selected)
-            filtered = self.filter_unique(selected)
-            if len(filtered) > ki:
-                selected = filtered
-            else:
-                print('not enough unique candidates found. using repeats')
-            print('selected post filter',selected)
-            #selected = self.filter_unique(selected)
-            """
-            selection = scores.copy() 
-            for round in range(len(selection)-2): #-2 because we want to keep the best and second-best for crossover
-                compare_pair = np.random.randint(0, len(selection), 2)
-                #This is where a dictionary of score/selection would be nice and clean instead of fixed index references.
-                if scores[compare_pair[0]][3] <= scores[compare_pair[1]][3]:
-                    loser = compare_pair[1]
-                    selection.pop(loser)
-                else:
-                    loser = compare_pair[0]
-                    selection.pop(loser)
-            """
-            #NOTE set random_x_second to None to do (winner + runner_up)
-            winner, runner_up = self.find_min_runner_up(selected,random_x_second=ki)
-            #At the last round, hold onto the runner up for a possible crossover
-            #TODO We will probably need to implement different pairing methods rather than just (winner + runner_up)
-            #     especially if having trouble finding the right solution. adding some randomness helps avoid 
-            #     convergence to local minimum.
-            #     we could also try (winner + random) , (winner + random_top_10_percent) , (random + random)
-            print("Iteration:",iteration, "Winner:",winner, "Second:",runner_up)
+            #Since we have the starting generation, we will move directly to the tourny selection method
+
+            scores = self.tournament_selection(scores,iteration,k,replacements,multi_mutate)
+            highest, lowest = self.find_min_max(scores)
+            gen_winners.append(scores[lowest[1]])
+            print("Iteration:",iteration, "Lowest:",lowest[2],lowest[3], "Highest:",highest[2],highest[3])
             with open("scoring_%s.txt"%self.config.sections['TARGET'].job_prefix, "a") as f:
-                print(iteration, winner, runner_up, file=f)
-            print('winner',winner,winner[2])
-            atoms_winner = self.convert.lammps_to_ase(winner[2])
-            atoms_runner_up = self.convert.lammps_to_ase(runner_up[2])
-
-            #Winning candidate is then appended to winners circle list 
-            gen_winners.append(winner) #appends arrays along the first axis (row-wise)
-            #Now setup for the next iteration of the tournament
-            """
-            #NOTE this is one possible way we can do a loop over structures to get mutations from different candidates & not always the lowest loss candidate
-            scores = []
-            for iset,set_pair in enumerate(selected_sets):
-                winner, runner_up = self.find_min_runner_up(selected,random_x_second=ki)
-                atoms_winner = self.convert.lammps_to_ase(set_pair[0][2])
-                atoms_runner_up = self.convert.lammps_to_ase(set_pair[1][2]) #TODO update for multi element list
-                if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
-                    batch = self.genetic.mutation(atoms_winner,single=True) #Will mutation only take in one structure?
-                else:
-                    batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
-
-                for candidate in range(len(batch)):
-                    #file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
-                    file_name = self.config.sections['TARGET'].job_prefix+"_Cand%dGen%s.lammps-data"%(iset,iteration)
-                    #NOTE: is lammps_data here always pulled from starting_generation? if so
-                    #      it needs to be updated so that the candidate is pulled from the 'current_generation'
-                    #      so far, it is unclear to me if the starting generation is just repeatedly operated on or
-                    #      if the generation is being updated and operated on.
-                    lammps_data = self.convert.ase_to_lammps(starting_generation[candidate],file_name) #NOTE question in comment above here
-                    #scores.append([iteration, candidate, file_name, self.scoring.get_score(lammps_data)])
-                    score_win = self.scoring.get_score(self.convert.ase_to_lammps(atoms_winner,file_name +'-win'))
-                    score_conv = self.scoring.get_score(lammps_data)
-                    #TODO help james understand why the 'winner' score not the lowest candidate score in line below
-                    print('score comp', candidate, len(batch), score_conv, score_win)
-                    scores.append([iteration, candidate, file_name, score_conv])
-                    #shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.data"%(candidate,iteration))
-            """
-            #Now setup for the next iteration of the tournament
-            scores = []
-            if np.random.rand() < float(self.config.sections['GENETIC'].mutation_rate):
-                batch = self.genetic.mutation(atoms_winner) #Will mutation only take in one structure?- TODO enable mutate >1 structures
-            else:
-                batch = self.genetic.crossover(atoms_winner, atoms_runner_up) #Should have two structures
-                #batch = self.genetic.crossover_ASE(atoms_winner, atoms_runner_up) #crossover function from ASE
-            #print('batch i',batch)
-            for candidate in range(len(batch)):
-                file_name = self.config.sections['TARGET'].job_prefix+"_Cand%sGen%s.lammps-data"%(candidate,iteration)
-                lammps_data = self.convert.ase_to_lammps(batch[candidate],file_name)
-                score_conv = self.scoring.get_score(lammps_data)
-                scores.append([iteration, candidate, lammps_data, score_conv])
-                print('gen %d cand %d score %f' % (iteration,candidate,score_conv))
-                shutil.move(lammps_data, self.config.sections['TARGET'].job_prefix + "_Cand%sGen%s.lammps-data"%(candidate,iteration))
-            current_generation = []
-        for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):
-            
+                print( lowest,highest, file=f)
+ 
+        for file in glob.glob(self.config.sections['TARGET'].job_prefix + "_Cand*Gen*"):          
             if file not in  [row[2] for row in gen_winners]:
                 os.remove(file)
 

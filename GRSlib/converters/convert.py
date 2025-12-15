@@ -35,7 +35,7 @@ class Convert:
             ase_data = read(data,format='lammps-data',Z_of_type=Z_of_type)
         except:
             ase_data = read(data+".lammps-data",format='lammps-data',Z_of_type=Z_of_type)
-        print('in GRSlib/converters/convert.py lammps_to_ase ',ase_data,types)
+        #print('in GRSlib/converters/convert.py lammps_to_ase ',ase_data,types)
         return ase_data
 
     def lammps_ace(self,data):

@@ -94,9 +94,9 @@ class Create:
         random_shuffle = True
         #More of a super function that will call a bunch of the ones below
 #        print("Starting population using provided template")
-        population = []
         duplicate = self.convert.lammps_to_ase(args[0][0])
-        for candidate in range(self.config.sections["GENETIC"].population_size):
+        population = [duplicate]
+        for candidate in range(self.config.sections["GENETIC"].population_size-1):
             tmp_atoms = duplicate.copy()
             if random_shuffle:
                 duplicate_syms = [atom.symbol for atom in tmp_atoms]
@@ -113,8 +113,7 @@ class Create:
 
     def from_phases(self,*args): # similar to template but start from a known lattice
         verbose = False
-        #value to compress/expand cells by (see TODO below)
-        compex = 0.0
+        compex = 0.0 #value to compress/expand cells by (see TODO below)
         population = []
         references_to_try = self.config.sections["GENETIC"].reference_phases #= ['hpc','fcc','bcc']
         pop_size = self.config.sections["GENETIC"].population_size
@@ -174,7 +173,7 @@ class Create:
 
     def from_random(self,*args):
         #More of a super function that will call a bunch of the ones below
-        #print("Starting population of random low energy structures of provided elements")
+#        print("Starting population of random low energy structures of provided elements")
         population = []
         # From types, find cell
         num_ele = len(self.config.sections["BASIS"].elements)

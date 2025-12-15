@@ -24,6 +24,9 @@ class Scoring(Section):
             #Score reduction if exact moment value is matched
             self.smartmask = self.get_value("SCORING", "smartmask", 0, interpreter="int")
             #Use a subset of descriptors of given count
+        elif self.score_type == "wasserstein":
+            self.smartmask = self.get_value("SCORING", "smartmask", 0, interpreter="int")
+            #Use a subset of descriptors of given count
 
         elif self.score_type == "entropy":
             self.internal_entropy = self.get_value("SCORING", "internal_entropy", 1.0)
